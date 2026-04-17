@@ -51,6 +51,8 @@
         .progress-bar-container { width: 260px; height: 12px; background: rgba(255,255,255,0.1); border-radius: 20px; margin-top: 30px; overflow: hidden; border: 1px solid rgba(255,215,0,0.5); }
         .progress-fill { width: 0%; height: 100%; background: linear-gradient(90deg, #fde047, #eab308); border-radius: 20px; transition: width 0.1s linear; box-shadow: 0 0 10px #fbbf24; }
         .loading-text { color: #fde047; font-weight: bold; margin-top: 15px; font-size: 18px; letter-spacing: 2px; }
+        /* Tambahan untuk tombol delete di keyboard */
+        .key-btn.delete { background: rgba(220, 38, 38, 0.3); color: #fca5a5; }
     </style>
 </head>
 <body>
@@ -66,7 +68,7 @@
     <div id="game-container" class="w-full h-full relative overflow-hidden">
         <!-- MENU UTAMA -->
         <div id="screen-main" class="flex flex-col items-center justify-center h-full">
-            <div class="flex flex-col gap-4 w-full max-w-sm px-6 mt-12">
+            <div class="flex flex-col gap-4 w-full max-w-sm px-6">
                 <button onclick="selectMode('PVP')" class="btn-anime bg-red-700 h-16 text-xl font-black">PEMAIN VS PEMAIN</button>
                 <button onclick="selectMode('PVC')" class="btn-anime bg-blue-700 h-16 text-xl font-black">PEMAIN VS KOMPUTER</button>
             </div>
@@ -88,7 +90,7 @@
                     <h2 class="text-center anime-font text-2xl text-red-400">RED KNIGHT</h2>
                     <div id="display-red" class="input-box anime-font"></div>
                     <div id="kb-red" class="keyboard-grid"></div>
-                    <button id="submit-red" onclick="submitName('RED')" class="w-full py-4 bg-red-600 font-black rounded-lg text-lg btn-anime">SUBMIT</button>
+                    <button id="submit-red" onclick="submitName('RED')" class="w-full py-4 bg-red-600 font-black rounded-lg text-lg btn-anime" disabled>SUBMIT</button>
                 </div>
             </div>
             <div class="side-blue flex flex-col items-center justify-center p-6">
@@ -96,7 +98,7 @@
                     <h2 class="text-center anime-font text-2xl text-blue-400">BLUE KNIGHT</h2>
                     <div id="display-blue" class="input-box anime-font"></div>
                     <div id="kb-blue" class="keyboard-grid"></div>
-                    <button id="submit-blue" onclick="submitName('BLUE')" class="w-full py-4 bg-blue-600 font-black rounded-lg text-lg btn-anime">SUBMIT</button>
+                    <button id="submit-blue" onclick="submitName('BLUE')" class="w-full py-4 bg-blue-600 font-black rounded-lg text-lg btn-anime" disabled>SUBMIT</button>
                 </div>
             </div>
         </div>
@@ -418,31 +420,77 @@
             else { state.red.isAI = true; state.red.name = "KNIGHT-CORE"; state.red.ready = true; document.getElementById('ai-pill-red').classList.remove('hidden'); document.getElementById('btn-scratch-red').classList.add('hidden'); }
             initInput();
         }
-        function initInput() {
-            document.getElementById('screen-team').classList.add('hidden'); document.getElementById('screen-name-input').classList.remove('hidden');
-            genKb('red'); genKb('blue');
-            if(state.red.isAI) { document.getElementById('display-red').innerText = state.red.name; document.getElementById('submit-red').disabled = true; }
-            if(state.blue.isAI) { document.getElementById('display-blue').innerText = state.blue.name; document.getElementById('submit-blue').disabled = true; }
+
+        // Fungsi untuk update status tombol submit berdasarkan panjang nama
+        function validateAndUpdateSubmit(side) {
+            const name = state[side].name;
+            const submitBtn = document.getElementById(`submit-${side}`);
+            const isValid = name.length >= 3 && name.length <= 8;
+            submitBtn.disabled = !isValid;
         }
+
+        function initInput() {
+            document.getElementById('screen-team').classList.add('hidden'); 
+            document.getElementById('screen-name-input').classList.remove('hidden');
+            genKb('red'); genKb('blue');
+            // Reset display dan validasi
+            if(state.red.isAI) { 
+                document.getElementById('display-red').innerText = state.red.name; 
+                document.getElementById('submit-red').disabled = true; 
+            } else {
+                document.getElementById('display-red').innerText = '';
+                document.getElementById('submit-red').disabled = true;
+            }
+            if(state.blue.isAI) { 
+                document.getElementById('display-blue').innerText = state.blue.name; 
+                document.getElementById('submit-blue').disabled = true; 
+            } else {
+                document.getElementById('display-blue').innerText = '';
+                document.getElementById('submit-blue').disabled = true;
+            }
+        }
+
         function genKb(side) {
             const kb = document.getElementById('kb-'+side);
+            kb.innerHTML = '';
+            // Huruf dan angka
             "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789".split("").forEach(l => {
-                const b = document.createElement('div'); b.className = 'key-btn'; b.innerText = l;
+                const b = document.createElement('div'); 
+                b.className = 'key-btn'; 
+                b.innerText = l;
                 b.onclick = () => { 
                     playSound('click');
-                    if(state[side].name.length < 10) { state[side].name += l; document.getElementById('display-'+side).innerText = state[side].name; } 
+                    if(state[side].name.length < 8) { 
+                        state[side].name += l; 
+                        document.getElementById('display-'+side).innerText = state[side].name;
+                        validateAndUpdateSubmit(side);
+                    } 
                 };
                 kb.appendChild(b);
             });
+            // Tombol delete
+            const delBtn = document.createElement('div');
+            delBtn.className = 'key-btn delete';
+            delBtn.innerText = 'DEL';
+            delBtn.onclick = () => {
+                playSound('click');
+                state[side].name = state[side].name.slice(0, -1);
+                document.getElementById('display-'+side).innerText = state[side].name;
+                validateAndUpdateSubmit(side);
+            };
+            kb.appendChild(delBtn);
         }
+
         function submitName(side) { 
             playSound('click');
             state[side.toLowerCase()].ready = true; 
             document.getElementById('submit-'+side.toLowerCase()).classList.add('opacity-30'); 
+            document.getElementById('submit-'+side.toLowerCase()).disabled = true;
             if(state.red.ready && state.blue.ready) {
                 startLoadingAndGame();
             }
         }
+
         function initGameplay() { 
             document.getElementById('screen-name-input').classList.add('hidden'); 
             document.getElementById('screen-game').classList.remove('hidden'); 
@@ -660,7 +708,8 @@
         function showGameOver() {
             playSound('win');
             const winner = state.scoreRed > state.scoreBlue ? 'RED' : 'BLUE';
-            document.getElementById('winner-text').innerText = `${winner === 'RED' ? '🔴 RED KNIGHT' : '🔵 BLUE KNIGHT'} MENANG!`;
+            const winnerName = winner === 'RED' ? state.red.name : state.blue.name;
+            document.getElementById('winner-text').innerText = `${winnerName} MENANG! 🏆`;
             document.getElementById('final-score-red').innerText = state.scoreRed;
             document.getElementById('final-score-blue').innerText = state.scoreBlue;
             document.getElementById('overlay-gameover').classList.add('active');
