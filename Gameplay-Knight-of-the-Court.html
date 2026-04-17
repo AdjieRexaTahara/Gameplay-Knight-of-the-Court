@@ -1,0 +1,730 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Knight of the Court: Momentum x Impuls</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        /* ========== STYLE (TIDAK BERUBAH) ========== */
+        :root { --p1-red: #991b1b; --p2-blue: #1e3a8a; }
+        body { font-family: 'Noto Sans JP', sans-serif; background-color: #020617; color: #f8fafc; overflow: hidden; margin: 0; height: 100vh; touch-action: none; }
+        .anime-font { font-family: 'Bungee', cursive; }
+        .btn-anime { position: relative; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); clip-path: polygon(10% 0%, 100% 0%, 90% 100%, 0% 100%); border: none; cursor: pointer; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+        .btn-anime:hover:not(:disabled) { transform: scale(1.05) translateY(-2px); filter: brightness(1.2); box-shadow: 0 10px 20px rgba(0,0,0,0.4); }
+        .btn-anime:disabled { opacity: 0.3; cursor: not-allowed; filter: grayscale(1); }
+        #screen-main { background-image: url('https://lh3.googleusercontent.com/d/18WbHKI-SG3G-o5BTUYZ8eDsSizzgxsIg'); background-size: cover; background-position: center; background-repeat: no-repeat; }
+        .split-screen { display: grid; grid-template-columns: 1fr 1fr; height: 100vh; width: 100vw; }
+        .side-red { background: linear-gradient(135deg, #450a0a 0%, #7f1d1d 50%, #450a0a 100%); border-right: 2px solid rgba(255,255,255,0.1); }
+        .side-blue { background: linear-gradient(135deg, #172554 0%, #1e3a8a 50%, #172554 100%); }
+        .panel-glass { background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(15px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 16px; }
+        .character-img { width: 100%; height: 100%; object-fit: cover; position: absolute; bottom: 0; z-index: 5; transition: opacity 0.5s; }
+        .keyboard-grid { display: grid; grid-template-columns: repeat(10, 1fr); gap: 5px; }
+        .key-btn { background: rgba(255, 255, 255, 0.1); aspect-ratio: 1/1; display: flex; align-items: center; justify-content: center; border-radius: 4px; cursor: pointer; font-size: 0.8rem; font-weight: bold; }
+        .input-box { background: rgba(0, 0, 0, 0.5); border: 2px solid rgba(255, 255, 255, 0.2); border-radius: 8px; height: 60px; display: flex; align-items: center; justify-content: center; font-size: 2rem; }
+        .quiz-overlay { position: absolute; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.6); opacity: 0; pointer-events: none; transition: opacity 0.5s; }
+        .quiz-overlay.active { opacity: 1; pointer-events: auto; }
+        .anim-layer { position: fixed; inset: 0; z-index: 999; background: black; display: none; align-items: center; justify-content: center; }
+        .anim-layer img { width: 100vw; height: 100vh; object-fit: cover; }
+        .option-btn { width: 100%; padding: 12px; margin-bottom: 8px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; text-align: left; transition: 0.2s; font-size: 0.85rem; }
+        .option-btn:hover { background: rgba(255,255,255,0.15); }
+        .option-btn.selected { background: #1d4ed8; border-color: #60a5fa; box-shadow: 0 0 15px rgba(59,130,246,0.5); }
+        .option-btn.correct-reveal { background: #15803d; border-color: #4ade80; }
+        .vs-divider { position: absolute; left: 50%; height: 100%; width: 2px; background: rgba(255,255,255,0.2); z-index: 20; }
+        .serve-selection-container { position: absolute; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; z-index: 60; pointer-events: none; }
+        .serve-selection-container.active { pointer-events: auto; }
+        .ai-status-pill { background: rgba(255, 255, 255, 0.1); padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: bold; }
+        .scratchpad-container { position: absolute; inset: 0; z-index: 100; background: rgba(0, 0, 0, 0.8); display: none; flex-direction: column; touch-action: none; }
+        .scratchpad-container.active { display: flex; }
+        .scratchpad-canvas { width: 100%; flex-grow: 1; cursor: crosshair; touch-action: none; }
+        .scratchpad-toolbar { padding: 10px; background: rgba(0,0,0,0.9); border-top: 1px solid rgba(255,255,255,0.2); display: flex; justify-content: space-between; align-items: center; }
+        .scratchpad-rumus { background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(4px); border-bottom: 1px solid rgba(255, 215, 0, 0.3); padding: 8px 16px; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 12px 20px; font-size: 16px; font-weight: 500; color: #fde047; text-shadow: 0 0 5px rgba(0,0,0,0.8); }
+        @media (min-width: 768px) { .scratchpad-rumus { font-size: 18px; gap: 16px 28px; } }
+        .scratchpad-rumus span { white-space: nowrap; letter-spacing: 0.3px; }
+        .loading-overlay { position: fixed; inset: 0; z-index: 1000; background: #020617; display: none; flex-direction: column; align-items: center; justify-content: center; }
+        .loading-overlay.active { display: flex; }
+        .volleyball-loader { width: 100px; height: 100px; background: radial-gradient(circle at 30% 30%, #fde047, #eab308); border-radius: 50%; position: relative; box-shadow: 0 0 30px rgba(250, 204, 21, 0.5); animation: spin 1.5s linear infinite; }
+        .volleyball-loader::before { content: ""; position: absolute; top: 10%; left: 10%; width: 80%; height: 80%; border-radius: 50%; background: radial-gradient(circle at 70% 70%, #1e3a8a, #172554); clip-path: polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%); }
+        .volleyball-loader::after { content: ""; position: absolute; top: 25%; left: 25%; width: 50%; height: 50%; border-radius: 50%; background: radial-gradient(circle at 30% 30%, #fde047, #eab308); opacity: 0.8; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .progress-bar-container { width: 260px; height: 12px; background: rgba(255,255,255,0.1); border-radius: 20px; margin-top: 30px; overflow: hidden; border: 1px solid rgba(255,215,0,0.5); }
+        .progress-fill { width: 0%; height: 100%; background: linear-gradient(90deg, #fde047, #eab308); border-radius: 20px; transition: width 0.1s linear; box-shadow: 0 0 10px #fbbf24; }
+        .loading-text { color: #fde047; font-weight: bold; margin-top: 15px; font-size: 18px; letter-spacing: 2px; }
+    </style>
+</head>
+<body>
+    <!-- LOADING OVERLAY -->
+    <div id="loading-overlay" class="loading-overlay">
+        <div class="volleyball-loader"></div>
+        <div class="progress-bar-container">
+            <div id="progress-fill" class="progress-fill" style="width: 0%;"></div>
+        </div>
+        <div id="loading-text" class="loading-text">MEMUAT ASET... 0%</div>
+    </div>
+
+    <div id="game-container" class="w-full h-full relative overflow-hidden">
+        <!-- MENU UTAMA -->
+        <div id="screen-main" class="flex flex-col items-center justify-center h-full">
+            <div class="flex flex-col gap-4 w-full max-w-sm px-6">
+                <button onclick="selectMode('PVP')" class="btn-anime bg-red-700 h-16 text-xl font-black">PEMAIN VS PEMAIN</button>
+                <button onclick="selectMode('PVC')" class="btn-anime bg-blue-700 h-16 text-xl font-black">PEMAIN VS KOMPUTER</button>
+            </div>
+        </div>
+
+        <!-- PILIH TIM (PVC) -->
+        <div id="screen-team" class="hidden flex flex-col items-center justify-center h-full">
+            <h2 class="anime-font text-4xl mb-12 tracking-widest text-center px-4">TENTUKAN WILAYAHMU</h2>
+            <div class="flex flex-col md:flex-row gap-8 px-6">
+                <button onclick="selectSide('LEFT')" class="btn-anime bg-red-800 w-full md:w-72 h-44 text-2xl font-black">KIRI (MERAH)</button>
+                <button onclick="selectSide('RIGHT')" class="btn-anime bg-blue-800 w-full md:w-72 h-44 text-2xl font-black">KANAN (BIRU)</button>
+            </div>
+        </div>
+
+        <!-- INPUT NAMA -->
+        <div id="screen-name-input" class="hidden split-screen relative">
+            <div class="side-red flex flex-col items-center justify-center p-6">
+                <div class="w-full max-w-xs space-y-4">
+                    <h2 class="text-center anime-font text-2xl text-red-400">RED KNIGHT</h2>
+                    <div id="display-red" class="input-box anime-font"></div>
+                    <div id="kb-red" class="keyboard-grid"></div>
+                    <button id="submit-red" onclick="submitName('RED')" class="w-full py-4 bg-red-600 font-black rounded-lg text-lg btn-anime">SUBMIT</button>
+                </div>
+            </div>
+            <div class="side-blue flex flex-col items-center justify-center p-6">
+                <div class="w-full max-w-xs space-y-4">
+                    <h2 class="text-center anime-font text-2xl text-blue-400">BLUE KNIGHT</h2>
+                    <div id="display-blue" class="input-box anime-font"></div>
+                    <div id="kb-blue" class="keyboard-grid"></div>
+                    <button id="submit-blue" onclick="submitName('BLUE')" class="w-full py-4 bg-blue-600 font-black rounded-lg text-lg btn-anime">SUBMIT</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- GAMEPLAY SCREEN -->
+        <div id="screen-game" class="hidden h-full w-full split-screen relative">
+            <div class="vs-divider"></div>
+            <!-- Court Red -->
+            <div id="court-red" class="side-red relative overflow-hidden">
+                <img src="https://lh3.googleusercontent.com/d/1bq4IWF0Ii6aC6zMs9iy3LMgWg5LVFQ2r" class="character-img">
+                <div class="absolute top-5 left-5 z-10 bg-black/40 p-4 rounded-xl border border-white/10">
+                    <div class="flex items-center gap-2">
+                        <h3 id="ui-name-red" class="anime-font text-xl text-red-400">PLAYER 1</h3>
+                        <span id="ai-pill-red" class="ai-status-pill hidden">CPU</span>
+                    </div>
+                    <p class="text-xs font-bold mt-1 uppercase text-white/70">Jump: <span id="quota-red" class="text-red-400">3</span>/3</p>
+                </div>
+                <button id="btn-scratch-red" onclick="toggleScratchpad('red')" class="absolute bottom-5 left-5 z-[80] btn-anime bg-yellow-600 px-4 py-2 text-xs font-black">SCRATCHPAD</button>
+                <div id="scratch-red" class="scratchpad-container">
+                    <div class="scratchpad-toolbar">
+                        <span class="anime-font text-xs text-yellow-400">RUMUS SCRATCHPAD (MERAH)</span>
+                        <div class="flex gap-2">
+                            <button onclick="clearCanvas('red')" class="bg-red-900 px-3 py-1 rounded text-[10px] font-bold">HAPUS</button>
+                            <button onclick="toggleScratchpad('red')" class="bg-white text-black px-3 py-1 rounded text-[10px] font-bold">TUTUP</button>
+                        </div>
+                    </div>
+                    <div class="scratchpad-rumus">
+                        <span>p = m · v</span> <span>I = F · Δt</span> <span>I = Δp</span> <span>I = p₂ − p₁</span> <span>I = m(v₂ − v₁)</span> <span>m₁v₁ + m₂v₂ = (m₁+m₂)v'</span>
+                    </div>
+                    <canvas id="canvas-red" class="scratchpad-canvas"></canvas>
+                </div>
+                <div id="serve-ui-red" class="serve-selection-container hidden">
+                    <div class="panel-glass p-8 text-center w-80 shadow-2xl pointer-events-auto">
+                        <span class="anime-font text-xs tracking-widest text-red-400">YOUR TURN</span>
+                        <h3 class="anime-font text-xl mt-2 mb-4">PILIH SERVE</h3>
+                        <div id="serve-timer-red" class="text-4xl font-black mb-6 text-yellow-400">5</div>
+                        <div class="flex flex-col gap-3">
+                            <button onclick="confirmServeType('standing')" class="btn-anime bg-slate-700 h-12 text-sm font-bold">STANDING SERVE</button>
+                            <button id="btn-jump-red" onclick="confirmServeType('jump')" class="btn-anime bg-purple-700 h-12 text-sm font-black">JUMP SERVE</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Court Blue -->
+            <div id="court-blue" class="side-blue relative overflow-hidden">
+                <img src="https://lh3.googleusercontent.com/d/1r1ZJndtjAq5Zvwx8zKHH4ZIQAuf-j2vy" class="character-img">
+                <div class="absolute top-5 right-5 z-10 text-right bg-black/40 p-4 rounded-xl border border-white/10">
+                    <div class="flex items-center justify-end gap-2">
+                        <span id="ai-pill-blue" class="ai-status-pill hidden">CPU</span>
+                        <h3 id="ui-name-blue" class="anime-font text-xl text-blue-400">PLAYER 2</h3>
+                    </div>
+                    <p class="text-xs font-bold mt-1 uppercase text-white/70">Jump: <span id="quota-blue" class="text-blue-400">3</span>/3</p>
+                </div>
+                <button id="btn-scratch-blue" onclick="toggleScratchpad('blue')" class="absolute bottom-5 right-5 z-[80] btn-anime bg-yellow-600 px-4 py-2 text-xs font-black">SCRATCHPAD</button>
+                <div id="scratch-blue" class="scratchpad-container">
+                    <div class="scratchpad-toolbar">
+                        <span class="anime-font text-xs text-yellow-400">RUMUS SCRATCHPAD (BIRU)</span>
+                        <div class="flex gap-2">
+                            <button onclick="clearCanvas('blue')" class="bg-red-900 px-3 py-1 rounded text-[10px] font-bold">HAPUS</button>
+                            <button onclick="toggleScratchpad('blue')" class="bg-white text-black px-3 py-1 rounded text-[10px] font-bold">TUTUP</button>
+                        </div>
+                    </div>
+                    <div class="scratchpad-rumus">
+                        <span>p = m · v</span> <span>I = F · Δt</span> <span>I = Δp</span> <span>I = p₂ − p₁</span> <span>I = m(v₂ − v₁)</span> <span>m₁v₁ + m₂v₂ = (m₁+m₂)v'</span>
+                    </div>
+                    <canvas id="canvas-blue" class="scratchpad-canvas"></canvas>
+                </div>
+                <div id="serve-ui-blue" class="serve-selection-container hidden">
+                    <div class="panel-glass p-8 text-center w-80 shadow-2xl pointer-events-auto">
+                        <span class="anime-font text-xs tracking-widest text-blue-400">YOUR TURN</span>
+                        <h3 class="anime-font text-xl mt-2 mb-4">PILIH SERVE</h3>
+                        <div id="serve-timer-blue" class="text-4xl font-black mb-6 text-yellow-400">5</div>
+                        <div class="flex flex-col gap-3">
+                            <button onclick="confirmServeType('standing')" class="btn-anime bg-slate-700 h-12 text-sm font-bold">STANDING SERVE</button>
+                            <button id="btn-jump-blue" onclick="confirmServeType('jump')" class="btn-anime bg-purple-700 h-12 text-sm font-black">JUMP SERVE</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Header Panel dengan Skor -->
+            <div class="absolute top-8 left-1/2 -translate-x-1/2 z-20 bg-black/80 px-10 py-3 rounded-full border-2 border-white/20 shadow-2xl text-center min-w-[260px]">
+                <div class="flex items-center justify-center gap-6">
+                    <span id="score-red" class="anime-font text-3xl text-red-400">0</span>
+                    <span id="round-text" class="anime-font text-xl italic text-yellow-400">ROUND 1</span>
+                    <span id="score-blue" class="anime-font text-3xl text-blue-400">0</span>
+                </div>
+                <div class="flex justify-center items-center gap-4 mt-1">
+                    <span id="momentum-text" class="text-[10px] uppercase font-bold text-white/50 tracking-tighter">Waktu: 25s</span>
+                    <span id="ai-accuracy-text" class="text-[10px] uppercase font-bold text-blue-400 hidden tracking-tighter">AI: 70%</span>
+                </div>
+            </div>
+
+            <!-- Quiz Overlay -->
+            <div id="overlay-quiz" class="quiz-overlay !items-stretch !p-4 md:!p-12 !bg-black/95">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-12 w-full max-w-6xl mx-auto">
+                    <div id="panel-quiz-red" class="panel-glass p-6 md:p-8 flex flex-col border-red-500/30">
+                        <div class="flex justify-between items-center mb-4">
+                            <span id="label-red" class="anime-font text-red-500 px-4 py-1 bg-red-500/10 rounded">...</span>
+                            <div id="timer-ui-red" class="text-3xl md:text-4xl font-black text-white">0</div>
+                        </div>
+                        <div class="flex-grow flex flex-col justify-center">
+                            <p id="q-red" class="text-sm md:text-lg mb-6 leading-relaxed font-medium"></p>
+                            <div id="opts-red" class="grid grid-cols-1 gap-2"></div>
+                        </div>
+                    </div>
+                    <div id="panel-quiz-blue" class="panel-glass p-6 md:p-8 flex flex-col border-blue-500/30">
+                        <div class="flex justify-between items-center mb-4">
+                            <span id="label-blue" class="anime-font text-blue-500 px-4 py-1 bg-blue-500/10 rounded">...</span>
+                            <div id="timer-ui-blue" class="text-3xl md:text-4xl font-black text-white">0</div>
+                        </div>
+                        <div class="flex-grow flex flex-col justify-center">
+                            <p id="q-blue" class="text-sm md:text-lg mb-6 leading-relaxed font-medium"></p>
+                            <div id="opts-blue" class="grid grid-cols-1 gap-2"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Next Round Overlay -->
+            <div id="overlay-next" class="quiz-overlay">
+                <div class="panel-glass p-8 md:p-12 text-center max-w-sm border-white/20 w-[90%] md:w-full">
+                    <h3 id="round-result-msg" class="anime-font text-2xl md:text-3xl mb-8">ROUND SELESAI</h3>
+                    <button onclick="nextRound()" class="btn-anime bg-green-600 w-full h-16 text-xl font-black">LANJUTKAN</button>
+                </div>
+            </div>
+
+            <!-- Game Over Overlay -->
+            <div id="overlay-gameover" class="quiz-overlay">
+                <div class="panel-glass p-8 md:p-12 text-center max-w-md border-white/20 w-[90%] md:w-full">
+                    <h3 id="winner-text" class="anime-font text-3xl md:text-4xl mb-6 text-yellow-400">RED WIN!</h3>
+                    <div class="flex justify-center gap-4 text-2xl mb-8">
+                        <span id="final-score-red" class="text-red-400">0</span>
+                        <span class="text-white">-</span>
+                        <span id="final-score-blue" class="text-blue-400">0</span>
+                    </div>
+                    <button onclick="returnToMainMenu()" class="btn-anime bg-blue-600 w-full h-16 text-xl font-black">MENU UTAMA</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- FULLSCREEN ANIMATION LAYER -->
+        <div id="anim-layer" class="anim-layer"><img id="anim-img" src=""></div>
+    </div>
+
+    <script>
+        // ----- SOUND EFFECTS (Web Audio API) -----
+        let audioCtx = null;
+        function initAudio() {
+            if (audioCtx) return;
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        function playSound(type) {
+            try {
+                if (!audioCtx) initAudio();
+                if (audioCtx.state === 'suspended') {
+                    audioCtx.resume();
+                }
+                const now = audioCtx.currentTime;
+                const gainNode = audioCtx.createGain();
+                gainNode.gain.setValueAtTime(0.2, now);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+                gainNode.connect(audioCtx.destination);
+
+                let osc;
+                switch(type) {
+                    case 'click': osc = audioCtx.createOscillator(); osc.frequency.value = 800; osc.type = 'sine'; break;
+                    case 'success': osc = audioCtx.createOscillator(); osc.frequency.value = 1200; osc.type = 'triangle'; break;
+                    case 'fail': osc = audioCtx.createOscillator(); osc.frequency.value = 300; osc.type = 'sawtooth'; break;
+                    case 'jump': osc = audioCtx.createOscillator(); osc.frequency.value = 400; osc.type = 'square'; break;
+                    case 'win': osc = audioCtx.createOscillator(); osc.frequency.value = 1000; osc.type = 'sine'; break;
+                    case 'start': osc = audioCtx.createOscillator(); osc.frequency.value = 600; osc.type = 'triangle'; break;
+                    default: osc = audioCtx.createOscillator(); osc.frequency.value = 800;
+                }
+                osc.connect(gainNode);
+                osc.start();
+                osc.stop(now + 0.1);
+            } catch(e) { /* Abaikan error autoplay */ }
+        }
+
+        // ----- STATE (ditambah skor) -----
+        const state = {
+            round: 1, mode: 'PVP', server: 'RED', serveType: 'standing',
+            currentTimeLimit: 25, aiAccuracy: 70,
+            scoreRed: 0, scoreBlue: 0,
+            red: { name: '', jump: 3, ans: null, correct: false, isAI: false, ready: false },
+            blue: { name: '', jump: 3, ans: null, correct: false, isAI: false, ready: false },
+            currentQuestions: { red: null, blue: null },
+            gameOver: false
+        };
+
+        // ----- BANK SOAL DIPERBANYAK -----
+        const DATA = {
+            momentum: {
+                lots: [
+                    { type: 'hitung', q: "Sebuah bola voli (0.25kg) dipukul sehingga kecepatannya berubah dari 0 menjadi 20m/s. Berapakah momentum akhirnya?", opts: ["2.5 kg m/s", "5 kg m/s", "7.5 kg m/s", "10 kg m/s", "20 kg m/s"], correct: 1 },
+                    { type: 'teori', q: "Momentum didefinisikan sebagai hasil kali antara...", opts: ["Massa dan percepatan", "Massa dan kecepatan", "Gaya dan waktu", "Gaya dan perpindahan", "Energi dan waktu"], correct: 1 },
+                    { type: 'hitung', q: "Sebuah benda bermassa 2 kg bergerak dengan kecepatan 3 m/s. Momentum benda tersebut adalah...", opts: ["2 Ns", "3 Ns", "5 Ns", "6 Ns", "9 Ns"], correct: 3 },
+                    { type: 'teori', q: "Satuan momentum dalam SI adalah...", opts: ["kg m/s", "N s", "kg m/s²", "Joule", "Watt"], correct: 0 },
+                    { type: 'hitung', q: "Bola bermassa 0.4 kg bergerak dengan kecepatan 15 m/s. Momentum bola adalah...", opts: ["3 kg m/s", "6 kg m/s", "9 kg m/s", "12 kg m/s", "15 kg m/s"], correct: 1 },
+                    { type: 'teori', q: "Momentum termasuk besaran...", opts: ["Skalar", "Vektor", "Tensor", "Pokok", "Turunan"], correct: 1 },
+                    { type: 'hitung', q: "Mobil 800 kg melaju 20 m/s. Momentum mobil adalah...", opts: ["4000 kg m/s", "8000 kg m/s", "12000 kg m/s", "16000 kg m/s", "20000 kg m/s"], correct: 3 },
+                    { type: 'teori', q: "Arah momentum selalu sama dengan arah...", opts: ["Percepatan", "Gaya", "Kecepatan", "Perpindahan", "Impuls"], correct: 2 },
+                ],
+                hots: [
+                    { type: 'hitung', q: "(HOTS) Dua pemain bertabrakan di udara. Pemain A (60kg, 4m/s) dan pemain B (40kg, -2m/s). Jika mereka jatuh bersama, berapakah kecepatan akhirnya?", opts: ["1.2 m/s", "1.6 m/s", "2.0 m/s", "2.4 m/s", "3.0 m/s"], correct: 1 },
+                    { type: 'hitung', q: "(HOTS) Bola A (0.5kg, 10m/s) menumbuk bola B (0.3kg, diam) dan keduanya menyatu. Kecepatan setelah tumbukan adalah...", opts: ["4.25 m/s", "5.00 m/s", "6.25 m/s", "7.50 m/s", "8.33 m/s"], correct: 2 },
+                    { type: 'hitung', q: "(HOTS) Sebuah roket 1000 kg membuang 50 kg gas dengan kecepatan 200 m/s. Kecepatan roket setelah pembuangan adalah...", opts: ["5 m/s", "8 m/s", "10 m/s", "12 m/s", "15 m/s"], correct: 2 },
+                    { type: 'hitung', q: "(HOTS) Dua benda identik (2 kg) bergerak saling mendekat dengan kecepatan 4 m/s dan 2 m/s. Setelah tumbukan lenting sempurna, kecepatan benda pertama adalah...", opts: ["-2 m/s", "2 m/s", "4 m/s", "6 m/s", "8 m/s"], correct: 0 },
+                ]
+            },
+            impuls: {
+                lots: [
+                    { type: 'hitung', q: "Gaya 100N bekerja pada bola dalam waktu 0.01 detik. Berapakah besar impuls yang diterima bola?", opts: ["0.1 Ns", "1 Ns", "10 Ns", "100 Ns", "1000 Ns"], correct: 1 },
+                    { type: 'teori', q: "Impuls sama dengan perubahan...", opts: ["Kecepatan", "Momentum", "Energi kinetik", "Percepatan", "Gaya"], correct: 1 },
+                    { type: 'hitung', q: "Sebuah gaya 50 N bekerja selama 0.2 s. Impuls yang dihasilkan adalah...", opts: ["5 Ns", "10 Ns", "25 Ns", "50 Ns", "100 Ns"], correct: 1 },
+                    { type: 'teori', q: "Satuan impuls dalam SI adalah...", opts: ["N", "Ns", "kg m/s", "Joule", "Watt"], correct: 1 },
+                    { type: 'hitung', q: "Bola menerima impuls 12 Ns selama 0.3 s. Gaya rata-ratanya adalah...", opts: ["4 N", "12 N", "20 N", "30 N", "40 N"], correct: 3 },
+                    { type: 'teori', q: "Impuls termasuk besaran...", opts: ["Skalar", "Vektor", "Tensor", "Pokok", "Turunan"], correct: 1 },
+                    { type: 'hitung', q: "Gaya 200 N bekerja 0.05 s. Impulsnya adalah...", opts: ["10 Ns", "20 Ns", "30 Ns", "40 Ns", "50 Ns"], correct: 0 },
+                    { type: 'teori', q: "Hubungan impuls dan momentum dinyatakan oleh...", opts: ["I = F/Δt", "I = m·a", "I = Δp", "I = W·t", "I = E·t"], correct: 2 },
+                ],
+                hots: [
+                    { type: 'hitung', q: "(HOTS) Bola 0.5kg memantul dari lantai dengan kecepatan awal -10m/s dan memantul ke atas 8m/s. Jika kontak 0.02s, berapa Gaya rata-ratanya?", opts: ["250 N", "350 N", "450 N", "550 N", "650 N"], correct: 2 },
+                    { type: 'hitung', q: "(HOTS) Bola tenis (0.06kg) datang dengan kecepatan 25m/s, dipukul sehingga berbalik dengan kecepatan 35m/s. Jika waktu kontak 0.005s, gaya rata-rata raket adalah...", opts: ["720 N", "840 N", "960 N", "1080 N", "1200 N"], correct: 0 },
+                    { type: 'hitung', q: "(HOTS) Bola basket 0.6 kg jatuh bebas dari ketinggian 1.8 m dan memantul setinggi 1.25 m. Impuls yang diberikan lantai adalah... (g=10 m/s²)", opts: ["3 Ns", "4.2 Ns", "5.4 Ns", "6.6 Ns", "7.8 Ns"], correct: 2 },
+                    { type: 'hitung', q: "(HOTS) Sebuah mobil 1200 kg melaju 15 m/s menabrak dinding dan berhenti dalam 0.1 s. Gaya rata-rata yang dialami mobil adalah...", opts: ["90 kN", "120 kN", "150 kN", "180 kN", "210 kN"], correct: 3 },
+                ]
+            }
+        };
+
+        const ASSETS = { /* tidak berubah */ 
+            serveRed: { standing: "1taNFeXBBbVb2JR4yiVKu14as0vz09IQ4", jump: "14KqvFkoiYrT36trNQtz7ajqwDvoZ1AoI" },
+            serveBlue: { standing: "1aCAiJE7Zk7yjmXM3S3TZVguYtelxnBVd", jump: "1MMdetstnv5BaMKisgkCa4MiPpsqUPvGa" },
+            receiveRed: { success: "1RHa2vSurXxX7ZBB2Bq8fiiTGaxY5LGuU", fail: "1nxTMUkdkk7nwnTVVOoUoOwK2WKgGK3G5" },
+            receiveBlue: { success: "1R9s3R22VIeLBl4KcU1k_7T-8QR_AZWF5", fail: "1CDBmtBGP17hu8mQp-Iz9lukPd-0scoKc" },
+            failServeRed: { standing: "1xL1qH-dXsQai34QrT_8oIDhRoxUE_r1J", jump: "1RssFz6R-_5TX1AAraRnwAtGCWfJM3AHc" },
+            failServeBlue: { standing: "1JnpJM9Rv3lxBCp1HLvlTxCYDgkPjpx9N", jump: "14thRaqR_Xt60zmZvR5m-osGDQjJhdCJ5" }
+        };
+
+        function getD(id) { return `https://lh3.googleusercontent.com/d/${id}?t=${Date.now()}`; }
+
+        // ----- PRELOAD ASSETS (tidak berubah) -----
+        async function preloadAssets() {
+            const urls = [];
+            for (let key in ASSETS) {
+                const obj = ASSETS[key];
+                for (let sub in obj) urls.push(getD(obj[sub]));
+            }
+            urls.push("https://lh3.googleusercontent.com/d/1bq4IWF0Ii6aC6zMs9iy3LMgWg5LVFQ2r");
+            urls.push("https://lh3.googleusercontent.com/d/1r1ZJndtjAq5Zvwx8zKHH4ZIQAuf-j2vy");
+            const total = urls.length;
+            let loaded = 0;
+            const progressFill = document.getElementById('progress-fill');
+            const loadingText = document.getElementById('loading-text');
+            const promises = urls.map(url => new Promise(resolve => {
+                const img = new Image();
+                img.onload = img.onerror = () => {
+                    loaded++;
+                    const percent = Math.round((loaded / total) * 100);
+                    progressFill.style.width = percent + '%';
+                    loadingText.innerText = `MEMUAT ASET... ${percent}%`;
+                    resolve();
+                };
+                img.src = url;
+            }));
+            await Promise.all(promises);
+        }
+
+        async function startLoadingAndGame() {
+            const loadingOverlay = document.getElementById('loading-overlay');
+            loadingOverlay.classList.add('active');
+            const minDuration = new Promise(resolve => setTimeout(resolve, 5000));
+            await Promise.all([preloadAssets(), minDuration]);
+            loadingOverlay.classList.remove('active');
+            initGameplay();
+        }
+
+        // ----- SCRATCHPAD (tidak berubah) -----
+        function closeAllScratchpads() {
+            document.getElementById('scratch-red')?.classList.remove('active');
+            document.getElementById('scratch-blue')?.classList.remove('active');
+        }
+        function toggleScratchpad(side) {
+            playSound('click');
+            const quizOverlay = document.getElementById('overlay-quiz');
+            if (!quizOverlay.classList.contains('active')) { closeAllScratchpads(); return; }
+            const pad = document.getElementById(`scratch-${side}`);
+            pad.classList.toggle('active');
+            if(pad.classList.contains('active')) {
+                const canvas = document.getElementById(`canvas-${side}`);
+                const rect = canvas.parentElement.getBoundingClientRect();
+                if(canvas.width !== rect.width) {
+                    const temp = canvas.getContext('2d').getImageData(0,0,canvas.width, canvas.height);
+                    canvas.width = rect.width;
+                    canvas.height = rect.height - 50;
+                    const ctx = canvas.getContext('2d');
+                    ctx.strokeStyle = side === 'red' ? '#f87171' : '#60a5fa';
+                    ctx.lineWidth = 3; ctx.lineCap = 'round';
+                    ctx.putImageData(temp, 0, 0);
+                }
+            }
+        }
+
+        // ----- GAME LOGIC (dengan skor dan kondisi menang) -----
+        function selectMode(m) {
+            playSound('click');
+            state.mode = m;
+            document.getElementById('screen-main').classList.add('hidden');
+            if(m === 'PVC') {
+                document.getElementById('screen-team').classList.remove('hidden');
+                document.getElementById('ai-accuracy-text').classList.remove('hidden');
+            } else { initInput(); }
+        }
+        function selectSide(side) {
+            playSound('click');
+            if(side === 'LEFT') { state.blue.isAI = true; state.blue.name = "KNIGHT-CORE"; state.blue.ready = true; document.getElementById('ai-pill-blue').classList.remove('hidden'); document.getElementById('btn-scratch-blue').classList.add('hidden'); }
+            else { state.red.isAI = true; state.red.name = "KNIGHT-CORE"; state.red.ready = true; document.getElementById('ai-pill-red').classList.remove('hidden'); document.getElementById('btn-scratch-red').classList.add('hidden'); }
+            initInput();
+        }
+        function initInput() {
+            document.getElementById('screen-team').classList.add('hidden'); document.getElementById('screen-name-input').classList.remove('hidden');
+            genKb('red'); genKb('blue');
+            if(state.red.isAI) { document.getElementById('display-red').innerText = state.red.name; document.getElementById('submit-red').disabled = true; }
+            if(state.blue.isAI) { document.getElementById('display-blue').innerText = state.blue.name; document.getElementById('submit-blue').disabled = true; }
+        }
+        function genKb(side) {
+            const kb = document.getElementById('kb-'+side);
+            "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789".split("").forEach(l => {
+                const b = document.createElement('div'); b.className = 'key-btn'; b.innerText = l;
+                b.onclick = () => { 
+                    playSound('click');
+                    if(state[side].name.length < 10) { state[side].name += l; document.getElementById('display-'+side).innerText = state[side].name; } 
+                };
+                kb.appendChild(b);
+            });
+        }
+        function submitName(side) { 
+            playSound('click');
+            state[side.toLowerCase()].ready = true; 
+            document.getElementById('submit-'+side.toLowerCase()).classList.add('opacity-30'); 
+            if(state.red.ready && state.blue.ready) {
+                startLoadingAndGame();
+            }
+        }
+        function initGameplay() { 
+            document.getElementById('screen-name-input').classList.add('hidden'); 
+            document.getElementById('screen-game').classList.remove('hidden'); 
+            document.getElementById('ui-name-red').innerText = state.red.name; 
+            document.getElementById('ui-name-blue').innerText = state.blue.name;
+            state.scoreRed = 0; state.scoreBlue = 0; state.round = 1; state.gameOver = false;
+            state.aiAccuracy = 70;
+            updateScoreDisplay();
+            updateAIDisplay();
+            initCanvases(); 
+            startRound(); 
+        }
+
+        function updateScoreDisplay() {
+            document.getElementById('score-red').innerText = state.scoreRed;
+            document.getElementById('score-blue').innerText = state.scoreBlue;
+        }
+        function updateAIDisplay() {
+            const aiText = document.getElementById('ai-accuracy-text');
+            if (aiText) aiText.innerText = `AI: ${state.aiAccuracy}%`;
+        }
+
+        let serveTimerIv;
+        function startRound() {
+            if (state.gameOver) return;
+            playSound('start');
+            closeAllScratchpads();
+            state.red.ans = null; state.blue.ans = null;
+            document.getElementById('round-text').innerText = "ROUND " + state.round;
+            document.getElementById('momentum-text').innerText = `Waktu: ${state.currentTimeLimit}s`;
+            updateAIDisplay();
+            document.getElementById('overlay-next').classList.remove('active');
+            setTimeout(() => {
+                const side = state.server.toLowerCase();
+                const currentData = state[side];
+                if (currentData.isAI) {
+                    const willJump = (currentData.jump > 0 && Math.random() < 0.6);
+                    setTimeout(() => confirmServeType(willJump ? 'jump' : 'standing'), 1500);
+                } else {
+                    const ui = document.getElementById(`serve-ui-${side}`);
+                    const btnJump = document.getElementById(`btn-jump-${side}`);
+                    ui.classList.remove('hidden');
+                    btnJump.disabled = state[side].jump <= 0;
+                    let t = 5;
+                    const timerDisplay = document.getElementById(`serve-timer-${side}`);
+                    timerDisplay.innerText = t;
+                    serveTimerIv = setInterval(() => { t--; timerDisplay.innerText = t; if(t <= 0) confirmServeType('standing'); }, 1000);
+                }
+            }, 800);
+        }
+
+        function confirmServeType(type) {
+            playSound('click');
+            clearInterval(serveTimerIv);
+            state.serveType = type;
+            const side = state.server.toLowerCase();
+            document.getElementById(`serve-ui-${side}`).classList.add('hidden');
+            if(type === 'jump') { 
+                playSound('jump');
+                state[side].jump--; 
+                state.currentTimeLimit = 25;
+                if (state.mode === 'PVC') {
+                    state.aiAccuracy = Math.max(10, state.aiAccuracy - 20);
+                    updateAIDisplay();
+                }
+            } else { 
+                state.currentTimeLimit = 25; 
+            }
+            document.getElementById('quota-red').innerText = state.red.jump;
+            document.getElementById('quota-blue').innerText = state.blue.jump;
+            showQuiz();
+        }
+
+        function pickRandomByType(arr, desiredType) {
+            const filtered = arr.filter(q => q.type === desiredType);
+            return filtered[Math.floor(Math.random() * filtered.length)];
+        }
+
+        function showQuiz() {
+            const isJump = state.serveType === 'jump';
+            document.getElementById('overlay-quiz').classList.add('active');
+            let questionType = isJump ? 'hitung' : (Math.random() < 0.5 ? 'teori' : 'hitung');
+            const serveQ = pickRandomByType(DATA.momentum.lots, questionType);
+            const receiveQ = pickRandomByType(isJump ? DATA.impuls.hots : DATA.impuls.lots, questionType);
+            const serverDur = 25, receiverDur = isJump ? 50 : 25;
+            state.currentTimeLimit = serverDur;
+            state.currentQuestions = { red: null, blue: null };
+            const serveSide = state.server.toLowerCase();
+            const receiveSide = (state.server === 'RED') ? 'blue' : 'red';
+            state.currentQuestions[serveSide] = serveQ;
+            state.currentQuestions[receiveSide] = receiveQ;
+            renderPanel('red', (state.server==='RED'?'SERVE':'RECEIVE'), state.currentQuestions.red, (state.server==='RED'?serverDur:receiverDur));
+            renderPanel('blue', (state.server==='BLUE'?'SERVE':'RECEIVE'), state.currentQuestions.blue, (state.server==='BLUE'?serverDur:receiverDur));
+            document.getElementById('momentum-text').innerText = `Waktu: ${serverDur}s${isJump ? ' | 50s' : ''}`;
+            if(state.red.isAI) simulateAI('red');
+            if(state.blue.isAI) simulateAI('blue');
+        }
+
+        function simulateAI(side) {
+            const qObj = state.currentQuestions[side];
+            if (!qObj) return;
+            setTimeout(() => {
+                if(state[side].ans !== null) return;
+                const isCorrect = Math.random() * 100 < state.aiAccuracy;
+                state[side].ans = isCorrect ? qObj.correct : (() => { let w; do { w = Math.floor(Math.random()*5); } while(w === qObj.correct); return w; })();
+                state[side].correct = isCorrect;
+                checkBothAnswered();
+            }, 2000 + Math.random()*4000);
+        }
+
+        function renderPanel(side, role, qObj, dur) {
+            if (!qObj) return;
+            document.getElementById('label-'+side).innerText = role;
+            document.getElementById('q-'+side).innerText = qObj.q;
+            document.getElementById('timer-ui-'+side).innerText = dur;
+            const cont = document.getElementById('opts-'+side);
+            cont.innerHTML = '';
+            qObj.opts.forEach((opt, i) => {
+                const btn = document.createElement('button');
+                btn.className = 'option-btn';
+                btn.innerText = String.fromCharCode(65+i) + ". " + opt;
+                btn.onclick = () => {
+                    playSound('click');
+                    if(state[side].ans !== null || state[side].isAI) return;
+                    state[side].ans = i; state[side].correct = (i === qObj.correct);
+                    btn.classList.add('selected');
+                    checkBothAnswered();
+                };
+                cont.appendChild(btn);
+            });
+            let t = dur;
+            const iv = setInterval(() => {
+                if(state[side].ans !== null) { clearInterval(iv); return; }
+                t--; 
+                const ui = document.getElementById('timer-ui-'+side);
+                if(ui) ui.innerText = t;
+                if(t <= 0) {
+                    clearInterval(iv);
+                    if(state[side].ans === null) { state[side].ans = -1; state[side].correct = false; checkBothAnswered(); }
+                }
+            }, 1000);
+        }
+
+        function checkBothAnswered() {
+            if(state.red.ans !== null && state.blue.ans !== null) {
+                ['red','blue'].forEach(s => { const q = state.currentQuestions[s]; if(q) document.getElementById('opts-'+s).children[q.correct]?.classList.add('correct-reveal'); });
+                setTimeout(processSequence, 1500);
+            }
+        }
+
+        async function processSequence() {
+            document.getElementById('overlay-quiz').classList.remove('active');
+            closeAllScratchpads();
+            const srv = state.server, rcv = srv === 'RED' ? 'BLUE' : 'RED';
+            const srvData = state[srv.toLowerCase()], rcvData = state[rcv.toLowerCase()];
+            
+            let pointWinner = null;
+            if (srvData.correct && !rcvData.correct) pointWinner = srv;
+            else if (!srvData.correct) pointWinner = rcv;
+            
+            if (pointWinner) {
+                if (pointWinner === 'RED') state.scoreRed++;
+                else state.scoreBlue++;
+                updateScoreDisplay();
+            }
+
+            // Sound effect berdasarkan hasil
+            if (srvData.correct && rcvData.correct) {
+                playSound('success'); // rally panjang
+            } else if (pointWinner) {
+                playSound('success'); // poin didapat
+            } else {
+                playSound('fail'); // serve gagal (tidak ada yang benar)
+            }
+
+            // Update akurasi AI
+            if (state.mode === 'PVC') {
+                if (srvData.correct && rcvData.correct) {
+                    state.aiAccuracy = Math.max(10, state.aiAccuracy - 5);
+                } else {
+                    state.aiAccuracy = 70;
+                }
+                updateAIDisplay();
+            }
+
+            // Update time limit
+            if(srvData.correct && rcvData.correct) {
+                if(state.currentTimeLimit > 4) state.currentTimeLimit -= 2;
+            } else { 
+                state.currentTimeLimit = 25; 
+            }
+
+            const serveGifId = srv === 'RED' ? ASSETS.serveRed[state.serveType] : ASSETS.serveBlue[state.serveType];
+            await playGif(getD(serveGifId));
+            let resultGifId = "";
+            if (srv === 'RED') resultGifId = srvData.correct ? (rcvData.correct ? ASSETS.receiveBlue.success : ASSETS.receiveBlue.fail) : ASSETS.failServeRed[state.serveType];
+            else resultGifId = srvData.correct ? (rcvData.correct ? ASSETS.receiveRed.success : ASSETS.receiveRed.fail) : ASSETS.failServeBlue[state.serveType];
+            await playGif(getD(resultGifId));
+            
+            let msg = srvData.correct && rcvData.correct ? "RALLY PANJANG!" : (srvData.correct ? "POINT UNTUK SERVER!" : "SERVE GAGAL!");
+            document.getElementById('round-result-msg').innerText = msg;
+
+            const maxRound = 15;
+            if (state.round >= maxRound) {
+                if (state.scoreRed !== state.scoreBlue) {
+                    state.gameOver = true;
+                    showGameOver();
+                    return;
+                }
+            }
+
+            document.getElementById('overlay-next').classList.add('active');
+        }
+
+        function showGameOver() {
+            playSound('win');
+            const winner = state.scoreRed > state.scoreBlue ? 'RED' : 'BLUE';
+            document.getElementById('winner-text').innerText = `${winner === 'RED' ? '🔴 RED KNIGHT' : '🔵 BLUE KNIGHT'} MENANG!`;
+            document.getElementById('final-score-red').innerText = state.scoreRed;
+            document.getElementById('final-score-blue').innerText = state.scoreBlue;
+            document.getElementById('overlay-gameover').classList.add('active');
+        }
+
+        function returnToMainMenu() {
+            playSound('click');
+            document.getElementById('overlay-gameover').classList.remove('active');
+            document.getElementById('screen-game').classList.add('hidden');
+            document.getElementById('screen-main').classList.remove('hidden');
+            state.red.ready = false; state.blue.ready = false;
+            state.red.jump = 3; state.blue.jump = 3;
+        }
+
+        function playGif(src) { 
+            return new Promise(resolve => {
+                const layer = document.getElementById('anim-layer');
+                const img = document.getElementById('anim-img');
+                img.src = src;
+                layer.style.display = 'flex';
+                setTimeout(() => { layer.style.display = 'none'; resolve(); }, 4000);
+            }); 
+        }
+
+        function nextRound() {
+            playSound('click');
+            if (state.gameOver) return;
+            state.round++;
+            state.server = (state.server === 'RED') ? 'BLUE' : 'RED';
+            if (state.mode === 'PVC') {
+                state.aiAccuracy = 70;
+                updateAIDisplay();
+            }
+            startRound();
+        }
+
+        function clearCanvas(side) {
+            playSound('click');
+            const canvas = document.getElementById(`canvas-${side}`);
+            canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+        }
+
+        // ----- CANVAS (tidak berubah) -----
+        const canvasState = { red: { ctx: null, drawing: false }, blue: { ctx: null, drawing: false } };
+        function initCanvases() {
+            ['red', 'blue'].forEach(side => {
+                const canvas = document.getElementById(`canvas-${side}`);
+                canvas.width = window.innerWidth / 2; canvas.height = window.innerHeight - 50;
+                const ctx = canvas.getContext('2d');
+                ctx.strokeStyle = side === 'red' ? '#f87171' : '#60a5fa'; ctx.lineWidth = 3; ctx.lineCap = 'round';
+                canvasState[side].ctx = ctx;
+                canvas.addEventListener('mousedown', (e) => startDrawing(side, e.offsetX, e.offsetY));
+                canvas.addEventListener('mousemove', (e) => draw(side, e.offsetX, e.offsetY));
+                canvas.addEventListener('mouseup', () => stopDrawing(side));
+                canvas.addEventListener('mouseout', () => stopDrawing(side));
+                canvas.addEventListener('touchstart', (e) => { e.preventDefault(); const touch = e.touches[0]; const rect = canvas.getBoundingClientRect(); startDrawing(side, touch.clientX - rect.left, touch.clientY - rect.top); }, { passive: false });
+                canvas.addEventListener('touchmove', (e) => { e.preventDefault(); const touch = e.touches[0]; const rect = canvas.getBoundingClientRect(); draw(side, touch.clientX - rect.left, touch.clientY - rect.top); }, { passive: false });
+                canvas.addEventListener('touchend', () => stopDrawing(side));
+            });
+        }
+        function startDrawing(side, x, y) { canvasState[side].drawing = true; [canvasState[side].lastX, canvasState[side].lastY] = [x, y]; }
+        function draw(side, x, y) { if (!canvasState[side].drawing) return; const { ctx, lastX, lastY } = canvasState[side]; ctx.beginPath(); ctx.moveTo(lastX, lastY); ctx.lineTo(x, y); ctx.stroke(); [canvasState[side].lastX, canvasState[side].lastY] = [x, y]; }
+        function stopDrawing(side) { canvasState[side].drawing = false; }
+        window.addEventListener('resize', () => { if(state.red.ready && state.blue.ready) initCanvases(); });
+    </script>
+</body>
+</html>
