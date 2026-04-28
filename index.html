@@ -51,7 +51,6 @@
         .progress-bar-container { width: 260px; height: 12px; background: rgba(255,255,255,0.1); border-radius: 20px; margin-top: 30px; overflow: hidden; border: 1px solid rgba(255,215,0,0.5); }
         .progress-fill { width: 0%; height: 100%; background: linear-gradient(90deg, #fde047, #eab308); border-radius: 20px; transition: width 0.1s linear; box-shadow: 0 0 10px #fbbf24; }
         .loading-text { color: #fde047; font-weight: bold; margin-top: 15px; font-size: 18px; letter-spacing: 2px; }
-        /* Tambahan untuk tombol delete di keyboard */
         .key-btn.delete { background: rgba(220, 38, 38, 0.3); color: #fca5a5; }
     </style>
 </head>
@@ -246,56 +245,53 @@
     </div>
 
     <script>
-        // ----- SOUND EFFECTS (Web Audio API) -----
+        // ========== SOUND & UTILITIES (TIDAK BERUBAH) ==========
         let audioCtx = null;
         function initAudio() {
             if (audioCtx) return;
-            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e) { }
         }
         function playSound(type) {
             try {
                 if (!audioCtx) initAudio();
-                if (audioCtx.state === 'suspended') {
-                    audioCtx.resume();
-                }
+                if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+                if (!audioCtx) return;
                 const now = audioCtx.currentTime;
                 const gainNode = audioCtx.createGain();
                 gainNode.gain.setValueAtTime(0.2, now);
                 gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
                 gainNode.connect(audioCtx.destination);
-
-                let osc;
+                let osc = audioCtx.createOscillator();
                 switch(type) {
-                    case 'click': osc = audioCtx.createOscillator(); osc.frequency.value = 800; osc.type = 'sine'; break;
-                    case 'success': osc = audioCtx.createOscillator(); osc.frequency.value = 1200; osc.type = 'triangle'; break;
-                    case 'fail': osc = audioCtx.createOscillator(); osc.frequency.value = 300; osc.type = 'sawtooth'; break;
-                    case 'jump': osc = audioCtx.createOscillator(); osc.frequency.value = 400; osc.type = 'square'; break;
-                    case 'win': osc = audioCtx.createOscillator(); osc.frequency.value = 1000; osc.type = 'sine'; break;
-                    case 'start': osc = audioCtx.createOscillator(); osc.frequency.value = 600; osc.type = 'triangle'; break;
-                    default: osc = audioCtx.createOscillator(); osc.frequency.value = 800;
+                    case 'click': osc.frequency.value = 800; break;
+                    case 'success': osc.frequency.value = 1200; osc.type = 'triangle'; break;
+                    case 'fail': osc.frequency.value = 300; osc.type = 'sawtooth'; break;
+                    case 'jump': osc.frequency.value = 400; osc.type = 'square'; break;
+                    case 'win': osc.frequency.value = 1000; break;
+                    default: osc.frequency.value = 800;
                 }
                 osc.connect(gainNode);
                 osc.start();
                 osc.stop(now + 0.1);
-            } catch(e) { /* Abaikan error autoplay */ }
+            } catch(e) { }
         }
 
-        // ----- STATE (ditambah skor) -----
+        // STATE DENGAN PENAMBAHAN rallyStreak untuk akurasi & waktu
         const state = {
             round: 1, mode: 'PVP', server: 'RED', serveType: 'standing',
-            currentTimeLimit: 25, aiAccuracy: 70,
             scoreRed: 0, scoreBlue: 0,
             red: { name: '', jump: 3, ans: null, correct: false, isAI: false, ready: false },
             blue: { name: '', jump: 3, ans: null, correct: false, isAI: false, ready: false },
             currentQuestions: { red: null, blue: null },
-            gameOver: false
+            gameOver: false,
+            rallyStreak: 0,      // jumlah rally panjang beruntun (kedua pemain benar)
+            aiAccuracy: 70       // akurasi AI (70% dasar)
         };
 
-        // ----- BANK SOAL DIPERBANYAK -----
+        // BANK SOAL (tidak berubah)
         const DATA = {
             momentum: {
-                lots: [
-                    { type: 'hitung', q: "Sebuah bola voli (0.25kg) dipukul sehingga kecepatannya berubah dari 0 menjadi 20m/s. Berapakah momentum akhirnya?", opts: ["2.5 kg m/s", "5 kg m/s", "7.5 kg m/s", "10 kg m/s", "20 kg m/s"], correct: 1 },
+                lots: [ { type: 'hitung', q: "Sebuah bola voli (0.25kg) dipukul sehingga kecepatannya berubah dari 0 menjadi 20m/s. Berapakah momentum akhirnya?", opts: ["2.5 kg m/s", "5 kg m/s", "7.5 kg m/s", "10 kg m/s", "20 kg m/s"], correct: 1 },
                     { type: 'teori', q: "Momentum didefinisikan sebagai hasil kali antara...", opts: ["Massa dan percepatan", "Massa dan kecepatan", "Gaya dan waktu", "Gaya dan perpindahan", "Energi dan waktu"], correct: 1 },
                     { type: 'hitung', q: "Sebuah benda bermassa 2 kg bergerak dengan kecepatan 3 m/s. Momentum benda tersebut adalah...", opts: ["2 Ns", "3 Ns", "5 Ns", "6 Ns", "9 Ns"], correct: 3 },
                     { type: 'teori', q: "Satuan momentum dalam SI adalah...", opts: ["kg m/s", "N s", "kg m/s²", "Joule", "Watt"], correct: 0 },
@@ -312,8 +308,7 @@
                 ]
             },
             impuls: {
-                lots: [
-                    { type: 'hitung', q: "Gaya 100N bekerja pada bola dalam waktu 0.01 detik. Berapakah besar impuls yang diterima bola?", opts: ["0.1 Ns", "1 Ns", "10 Ns", "100 Ns", "1000 Ns"], correct: 1 },
+                lots: [ { type: 'hitung', q: "Gaya 100N bekerja pada bola dalam waktu 0.01 detik. Berapakah besar impuls yang diterima bola?", opts: ["0.1 Ns", "1 Ns", "10 Ns", "100 Ns", "1000 Ns"], correct: 1 },
                     { type: 'teori', q: "Impuls sama dengan perubahan...", opts: ["Kecepatan", "Momentum", "Energi kinetik", "Percepatan", "Gaya"], correct: 1 },
                     { type: 'hitung', q: "Sebuah gaya 50 N bekerja selama 0.2 s. Impuls yang dihasilkan adalah...", opts: ["5 Ns", "10 Ns", "25 Ns", "50 Ns", "100 Ns"], correct: 1 },
                     { type: 'teori', q: "Satuan impuls dalam SI adalah...", opts: ["N", "Ns", "kg m/s", "Joule", "Watt"], correct: 1 },
@@ -331,7 +326,7 @@
             }
         };
 
-        const ASSETS = { /* tidak berubah */ 
+        const ASSETS = { 
             serveRed: { standing: "1taNFeXBBbVb2JR4yiVKu14as0vz09IQ4", jump: "14KqvFkoiYrT36trNQtz7ajqwDvoZ1AoI" },
             serveBlue: { standing: "1aCAiJE7Zk7yjmXM3S3TZVguYtelxnBVd", jump: "1MMdetstnv5BaMKisgkCa4MiPpsqUPvGa" },
             receiveRed: { success: "1RHa2vSurXxX7ZBB2Bq8fiiTGaxY5LGuU", fail: "1nxTMUkdkk7nwnTVVOoUoOwK2WKgGK3G5" },
@@ -339,157 +334,38 @@
             failServeRed: { standing: "1xL1qH-dXsQai34QrT_8oIDhRoxUE_r1J", jump: "1RssFz6R-_5TX1AAraRnwAtGCWfJM3AHc" },
             failServeBlue: { standing: "1JnpJM9Rv3lxBCp1HLvlTxCYDgkPjpx9N", jump: "14thRaqR_Xt60zmZvR5m-osGDQjJhdCJ5" }
         };
-
         function getD(id) { return `https://lh3.googleusercontent.com/d/${id}?t=${Date.now()}`; }
 
-        // ----- PRELOAD ASSETS (tidak berubah) -----
-        async function preloadAssets() {
+        async function preloadAssets() { /* sama persis, tidak diubah */ 
             const urls = [];
-            for (let key in ASSETS) {
-                const obj = ASSETS[key];
-                for (let sub in obj) urls.push(getD(obj[sub]));
-            }
+            for (let key in ASSETS) { const obj = ASSETS[key]; for (let sub in obj) urls.push(getD(obj[sub])); }
             urls.push("https://lh3.googleusercontent.com/d/1bq4IWF0Ii6aC6zMs9iy3LMgWg5LVFQ2r");
             urls.push("https://lh3.googleusercontent.com/d/1r1ZJndtjAq5Zvwx8zKHH4ZIQAuf-j2vy");
-            const total = urls.length;
-            let loaded = 0;
+            const total = urls.length; let loaded = 0;
             const progressFill = document.getElementById('progress-fill');
             const loadingText = document.getElementById('loading-text');
-            const promises = urls.map(url => new Promise(resolve => {
-                const img = new Image();
-                img.onload = img.onerror = () => {
-                    loaded++;
-                    const percent = Math.round((loaded / total) * 100);
-                    progressFill.style.width = percent + '%';
-                    loadingText.innerText = `MEMUAT ASET... ${percent}%`;
-                    resolve();
-                };
-                img.src = url;
-            }));
+            const promises = urls.map(url => new Promise(resolve => { const img = new Image(); img.onload = img.onerror = () => { loaded++; const percent = Math.round((loaded / total) * 100); progressFill.style.width = percent + '%'; loadingText.innerText = `MEMUAT ASET... ${percent}%`; resolve(); }; img.src = url; }));
             await Promise.all(promises);
         }
-
         async function startLoadingAndGame() {
             const loadingOverlay = document.getElementById('loading-overlay');
             loadingOverlay.classList.add('active');
-            const minDuration = new Promise(resolve => setTimeout(resolve, 5000));
-            await Promise.all([preloadAssets(), minDuration]);
+            await Promise.all([preloadAssets(), new Promise(resolve => setTimeout(resolve, 5000))]);
             loadingOverlay.classList.remove('active');
             initGameplay();
         }
 
-        // ----- SCRATCHPAD (tidak berubah) -----
-        function closeAllScratchpads() {
-            document.getElementById('scratch-red')?.classList.remove('active');
-            document.getElementById('scratch-blue')?.classList.remove('active');
-        }
-        function toggleScratchpad(side) {
-            playSound('click');
-            const quizOverlay = document.getElementById('overlay-quiz');
-            if (!quizOverlay.classList.contains('active')) { closeAllScratchpads(); return; }
-            const pad = document.getElementById(`scratch-${side}`);
-            pad.classList.toggle('active');
-            if(pad.classList.contains('active')) {
-                const canvas = document.getElementById(`canvas-${side}`);
-                const rect = canvas.parentElement.getBoundingClientRect();
-                if(canvas.width !== rect.width) {
-                    const temp = canvas.getContext('2d').getImageData(0,0,canvas.width, canvas.height);
-                    canvas.width = rect.width;
-                    canvas.height = rect.height - 50;
-                    const ctx = canvas.getContext('2d');
-                    ctx.strokeStyle = side === 'red' ? '#f87171' : '#60a5fa';
-                    ctx.lineWidth = 3; ctx.lineCap = 'round';
-                    ctx.putImageData(temp, 0, 0);
-                }
-            }
-        }
+        // SCRATCHPAD (sama)
+        function closeAllScratchpads() { document.getElementById('scratch-red')?.classList.remove('active'); document.getElementById('scratch-blue')?.classList.remove('active'); }
+        function toggleScratchpad(side) { playSound('click'); const quizOverlay = document.getElementById('overlay-quiz'); if (!quizOverlay.classList.contains('active')) { closeAllScratchpads(); return; } const pad = document.getElementById(`scratch-${side}`); pad.classList.toggle('active'); if(pad.classList.contains('active')) { const canvas = document.getElementById(`canvas-${side}`); const rect = canvas.parentElement.getBoundingClientRect(); if(canvas.width !== rect.width) { const temp = canvas.getContext('2d').getImageData(0,0,canvas.width, canvas.height); canvas.width = rect.width; canvas.height = rect.height - 50; const ctx = canvas.getContext('2d'); ctx.strokeStyle = side === 'red' ? '#f87171' : '#60a5fa'; ctx.lineWidth = 3; ctx.lineCap = 'round'; ctx.putImageData(temp, 0, 0); } } }
 
-        // ----- GAME LOGIC (dengan skor dan kondisi menang) -----
-        function selectMode(m) {
-            playSound('click');
-            state.mode = m;
-            document.getElementById('screen-main').classList.add('hidden');
-            if(m === 'PVC') {
-                document.getElementById('screen-team').classList.remove('hidden');
-                document.getElementById('ai-accuracy-text').classList.remove('hidden');
-            } else { initInput(); }
-        }
-        function selectSide(side) {
-            playSound('click');
-            if(side === 'LEFT') { state.blue.isAI = true; state.blue.name = "KNIGHT-CORE"; state.blue.ready = true; document.getElementById('ai-pill-blue').classList.remove('hidden'); document.getElementById('btn-scratch-blue').classList.add('hidden'); }
-            else { state.red.isAI = true; state.red.name = "KNIGHT-CORE"; state.red.ready = true; document.getElementById('ai-pill-red').classList.remove('hidden'); document.getElementById('btn-scratch-red').classList.add('hidden'); }
-            initInput();
-        }
-
-        // Fungsi untuk update status tombol submit berdasarkan panjang nama
-        function validateAndUpdateSubmit(side) {
-            const name = state[side].name;
-            const submitBtn = document.getElementById(`submit-${side}`);
-            const isValid = name.length >= 3 && name.length <= 8;
-            submitBtn.disabled = !isValid;
-        }
-
-        function initInput() {
-            document.getElementById('screen-team').classList.add('hidden'); 
-            document.getElementById('screen-name-input').classList.remove('hidden');
-            genKb('red'); genKb('blue');
-            // Reset display dan validasi
-            if(state.red.isAI) { 
-                document.getElementById('display-red').innerText = state.red.name; 
-                document.getElementById('submit-red').disabled = true; 
-            } else {
-                document.getElementById('display-red').innerText = '';
-                document.getElementById('submit-red').disabled = true;
-            }
-            if(state.blue.isAI) { 
-                document.getElementById('display-blue').innerText = state.blue.name; 
-                document.getElementById('submit-blue').disabled = true; 
-            } else {
-                document.getElementById('display-blue').innerText = '';
-                document.getElementById('submit-blue').disabled = true;
-            }
-        }
-
-        function genKb(side) {
-            const kb = document.getElementById('kb-'+side);
-            kb.innerHTML = '';
-            // Huruf dan angka
-            "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789".split("").forEach(l => {
-                const b = document.createElement('div'); 
-                b.className = 'key-btn'; 
-                b.innerText = l;
-                b.onclick = () => { 
-                    playSound('click');
-                    if(state[side].name.length < 8) { 
-                        state[side].name += l; 
-                        document.getElementById('display-'+side).innerText = state[side].name;
-                        validateAndUpdateSubmit(side);
-                    } 
-                };
-                kb.appendChild(b);
-            });
-            // Tombol delete
-            const delBtn = document.createElement('div');
-            delBtn.className = 'key-btn delete';
-            delBtn.innerText = 'DEL';
-            delBtn.onclick = () => {
-                playSound('click');
-                state[side].name = state[side].name.slice(0, -1);
-                document.getElementById('display-'+side).innerText = state[side].name;
-                validateAndUpdateSubmit(side);
-            };
-            kb.appendChild(delBtn);
-        }
-
-        function submitName(side) { 
-            playSound('click');
-            state[side.toLowerCase()].ready = true; 
-            document.getElementById('submit-'+side.toLowerCase()).classList.add('opacity-30'); 
-            document.getElementById('submit-'+side.toLowerCase()).disabled = true;
-            if(state.red.ready && state.blue.ready) {
-                startLoadingAndGame();
-            }
-        }
+        // GAME LOGIC DENGAN AKURASI DAN REDUKSI WAKTU
+        function selectMode(m) { playSound('click'); state.mode = m; document.getElementById('screen-main').classList.add('hidden'); if(m === 'PVC') { document.getElementById('screen-team').classList.remove('hidden'); document.getElementById('ai-accuracy-text').classList.remove('hidden'); } else { initInput(); } }
+        function selectSide(side) { playSound('click'); if(side === 'LEFT') { state.blue.isAI = true; state.blue.name = "KNIGHT-CORE"; state.blue.ready = true; document.getElementById('ai-pill-blue').classList.remove('hidden'); document.getElementById('btn-scratch-blue').classList.add('hidden'); } else { state.red.isAI = true; state.red.name = "KNIGHT-CORE"; state.red.ready = true; document.getElementById('ai-pill-red').classList.remove('hidden'); document.getElementById('btn-scratch-red').classList.add('hidden'); } initInput(); }
+        function validateAndUpdateSubmit(side) { const name = state[side].name; const submitBtn = document.getElementById(`submit-${side}`); submitBtn.disabled = !(name.length >= 3 && name.length <= 8); }
+        function initInput() { document.getElementById('screen-team').classList.add('hidden'); document.getElementById('screen-name-input').classList.remove('hidden'); genKb('red'); genKb('blue'); if(state.red.isAI) { document.getElementById('display-red').innerText = state.red.name; document.getElementById('submit-red').disabled = true; } else { document.getElementById('display-red').innerText = ''; document.getElementById('submit-red').disabled = true; } if(state.blue.isAI) { document.getElementById('display-blue').innerText = state.blue.name; document.getElementById('submit-blue').disabled = true; } else { document.getElementById('display-blue').innerText = ''; document.getElementById('submit-blue').disabled = true; } }
+        function genKb(side) { const kb = document.getElementById('kb-'+side); kb.innerHTML = ''; "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789".split("").forEach(l => { const b = document.createElement('div'); b.className = 'key-btn'; b.innerText = l; b.onclick = () => { playSound('click'); if(state[side].name.length < 8) { state[side].name += l; document.getElementById('display-'+side).innerText = state[side].name; validateAndUpdateSubmit(side); } }; kb.appendChild(b); }); const delBtn = document.createElement('div'); delBtn.className = 'key-btn delete'; delBtn.innerText = 'DEL'; delBtn.onclick = () => { playSound('click'); state[side].name = state[side].name.slice(0, -1); document.getElementById('display-'+side).innerText = state[side].name; validateAndUpdateSubmit(side); }; kb.appendChild(delBtn); }
+        function submitName(side) { playSound('click'); state[side.toLowerCase()].ready = true; document.getElementById('submit-'+side.toLowerCase()).disabled = true; if(state.red.ready && state.blue.ready) startLoadingAndGame(); }
 
         function initGameplay() { 
             document.getElementById('screen-name-input').classList.add('hidden'); 
@@ -497,21 +373,15 @@
             document.getElementById('ui-name-red').innerText = state.red.name; 
             document.getElementById('ui-name-blue').innerText = state.blue.name;
             state.scoreRed = 0; state.scoreBlue = 0; state.round = 1; state.gameOver = false;
+            state.rallyStreak = 0;
             state.aiAccuracy = 70;
             updateScoreDisplay();
             updateAIDisplay();
             initCanvases(); 
             startRound(); 
         }
-
-        function updateScoreDisplay() {
-            document.getElementById('score-red').innerText = state.scoreRed;
-            document.getElementById('score-blue').innerText = state.scoreBlue;
-        }
-        function updateAIDisplay() {
-            const aiText = document.getElementById('ai-accuracy-text');
-            if (aiText) aiText.innerText = `AI: ${state.aiAccuracy}%`;
-        }
+        function updateScoreDisplay() { document.getElementById('score-red').innerText = state.scoreRed; document.getElementById('score-blue').innerText = state.scoreBlue; }
+        function updateAIDisplay() { const aiText = document.getElementById('ai-accuracy-text'); if (aiText) aiText.innerText = `AI: ${state.aiAccuracy}%`; }
 
         let serveTimerIv;
         function startRound() {
@@ -520,25 +390,13 @@
             closeAllScratchpads();
             state.red.ans = null; state.blue.ans = null;
             document.getElementById('round-text').innerText = "ROUND " + state.round;
-            document.getElementById('momentum-text').innerText = `Waktu: ${state.currentTimeLimit}s`;
             updateAIDisplay();
             document.getElementById('overlay-next').classList.remove('active');
             setTimeout(() => {
                 const side = state.server.toLowerCase();
                 const currentData = state[side];
-                if (currentData.isAI) {
-                    const willJump = (currentData.jump > 0 && Math.random() < 0.6);
-                    setTimeout(() => confirmServeType(willJump ? 'jump' : 'standing'), 1500);
-                } else {
-                    const ui = document.getElementById(`serve-ui-${side}`);
-                    const btnJump = document.getElementById(`btn-jump-${side}`);
-                    ui.classList.remove('hidden');
-                    btnJump.disabled = state[side].jump <= 0;
-                    let t = 5;
-                    const timerDisplay = document.getElementById(`serve-timer-${side}`);
-                    timerDisplay.innerText = t;
-                    serveTimerIv = setInterval(() => { t--; timerDisplay.innerText = t; if(t <= 0) confirmServeType('standing'); }, 1000);
-                }
+                if (currentData.isAI) { const willJump = (currentData.jump > 0 && Math.random() < 0.6); setTimeout(() => confirmServeType(willJump ? 'jump' : 'standing'), 1500); }
+                else { const ui = document.getElementById(`serve-ui-${side}`); const btnJump = document.getElementById(`btn-jump-${side}`); ui.classList.remove('hidden'); btnJump.disabled = state[side].jump <= 0; let t = 5; const timerDisplay = document.getElementById(`serve-timer-${side}`); timerDisplay.innerText = t; serveTimerIv = setInterval(() => { t--; timerDisplay.innerText = t; if(t <= 0) confirmServeType('standing'); }, 1000); }
             }, 800);
         }
 
@@ -551,23 +409,17 @@
             if(type === 'jump') { 
                 playSound('jump');
                 state[side].jump--; 
-                state.currentTimeLimit = 25;
-                if (state.mode === 'PVC') {
-                    state.aiAccuracy = Math.max(10, state.aiAccuracy - 20);
-                    updateAIDisplay();
-                }
-            } else { 
-                state.currentTimeLimit = 25; 
-            }
+                // RESET AKURASI DAN RALLY STREAK KARENA JUMP SERVE
+                state.rallyStreak = 0;
+                state.aiAccuracy = 70;
+                updateAIDisplay();
+            } 
             document.getElementById('quota-red').innerText = state.red.jump;
             document.getElementById('quota-blue').innerText = state.blue.jump;
             showQuiz();
         }
 
-        function pickRandomByType(arr, desiredType) {
-            const filtered = arr.filter(q => q.type === desiredType);
-            return filtered[Math.floor(Math.random() * filtered.length)];
-        }
+        function pickRandomByType(arr, desiredType) { const filtered = arr.filter(q => q.type === desiredType); return filtered[Math.floor(Math.random() * filtered.length)]; }
 
         function showQuiz() {
             const isJump = state.serveType === 'jump';
@@ -575,8 +427,13 @@
             let questionType = isJump ? 'hitung' : (Math.random() < 0.5 ? 'teori' : 'hitung');
             const serveQ = pickRandomByType(DATA.momentum.lots, questionType);
             const receiveQ = pickRandomByType(isJump ? DATA.impuls.hots : DATA.impuls.lots, questionType);
-            const serverDur = 25, receiverDur = isJump ? 50 : 25;
-            state.currentTimeLimit = serverDur;
+            // HITUNG REDUKSI WAKTU BERDASARKAN RALLY STREAK (setiap rally panjang -1 detik)
+            const reduction = Math.min(state.rallyStreak, 20);
+            let baseServerTime = 25;
+            let baseReceiverTime = isJump ? 50 : 25;
+            let serverDur = Math.max(5, baseServerTime - reduction);
+            let receiverDur = Math.max(5, baseReceiverTime - reduction);
+            
             state.currentQuestions = { red: null, blue: null };
             const serveSide = state.server.toLowerCase();
             const receiveSide = (state.server === 'RED') ? 'blue' : 'red';
@@ -584,7 +441,7 @@
             state.currentQuestions[receiveSide] = receiveQ;
             renderPanel('red', (state.server==='RED'?'SERVE':'RECEIVE'), state.currentQuestions.red, (state.server==='RED'?serverDur:receiverDur));
             renderPanel('blue', (state.server==='BLUE'?'SERVE':'RECEIVE'), state.currentQuestions.blue, (state.server==='BLUE'?serverDur:receiverDur));
-            document.getElementById('momentum-text').innerText = `Waktu: ${serverDur}s${isJump ? ' | 50s' : ''}`;
+            document.getElementById('momentum-text').innerHTML = `Waktu: S${state.server==='RED'?serverDur:receiverDur}s / R${state.server==='RED'?receiverDur:serverDur}s`;
             if(state.red.isAI) simulateAI('red');
             if(state.blue.isAI) simulateAI('blue');
         }
@@ -627,10 +484,7 @@
                 t--; 
                 const ui = document.getElementById('timer-ui-'+side);
                 if(ui) ui.innerText = t;
-                if(t <= 0) {
-                    clearInterval(iv);
-                    if(state[side].ans === null) { state[side].ans = -1; state[side].correct = false; checkBothAnswered(); }
-                }
+                if(t <= 0) { clearInterval(iv); if(state[side].ans === null) { state[side].ans = -1; state[side].correct = false; checkBothAnswered(); } }
             }, 1000);
         }
 
@@ -650,39 +504,26 @@
             let pointWinner = null;
             if (srvData.correct && !rcvData.correct) pointWinner = srv;
             else if (!srvData.correct) pointWinner = rcv;
-            
-            if (pointWinner) {
-                if (pointWinner === 'RED') state.scoreRed++;
-                else state.scoreBlue++;
-                updateScoreDisplay();
-            }
+            if (pointWinner) { if (pointWinner === 'RED') state.scoreRed++; else state.scoreBlue++; updateScoreDisplay(); }
 
-            // Sound effect berdasarkan hasil
-            if (srvData.correct && rcvData.correct) {
-                playSound('success'); // rally panjang
-            } else if (pointWinner) {
-                playSound('success'); // poin didapat
-            } else {
-                playSound('fail'); // serve gagal (tidak ada yang benar)
-            }
+            // SOUND
+            if (srvData.correct && rcvData.correct) playSound('success');
+            else if (pointWinner) playSound('success');
+            else playSound('fail');
 
-            // Update akurasi AI
+            // UPDATE AKURASI & RALLY STREAK (berlaku hanya pada mode PVC)
             if (state.mode === 'PVC') {
-                if (srvData.correct && rcvData.correct) {
-                    state.aiAccuracy = Math.max(10, state.aiAccuracy - 5);
+                const bothCorrect = (srvData.correct && rcvData.correct);
+                if (bothCorrect) {
+                    state.rallyStreak++;
                 } else {
-                    state.aiAccuracy = 70;
+                    state.rallyStreak = 0;
                 }
+                state.aiAccuracy = Math.max(10, 70 - (state.rallyStreak * 5));
                 updateAIDisplay();
             }
 
-            // Update time limit
-            if(srvData.correct && rcvData.correct) {
-                if(state.currentTimeLimit > 4) state.currentTimeLimit -= 2;
-            } else { 
-                state.currentTimeLimit = 25; 
-            }
-
+            // ANIMASI GIF
             const serveGifId = srv === 'RED' ? ASSETS.serveRed[state.serveType] : ASSETS.serveBlue[state.serveType];
             await playGif(getD(serveGifId));
             let resultGifId = "";
@@ -694,82 +535,19 @@
             document.getElementById('round-result-msg').innerText = msg;
 
             const maxRound = 15;
-            if (state.round >= maxRound) {
-                if (state.scoreRed !== state.scoreBlue) {
-                    state.gameOver = true;
-                    showGameOver();
-                    return;
-                }
-            }
-
+            if (state.round >= maxRound && state.scoreRed !== state.scoreBlue) { state.gameOver = true; showGameOver(); return; }
             document.getElementById('overlay-next').classList.add('active');
         }
 
-        function showGameOver() {
-            playSound('win');
-            const winner = state.scoreRed > state.scoreBlue ? 'RED' : 'BLUE';
-            const winnerName = winner === 'RED' ? state.red.name : state.blue.name;
-            document.getElementById('winner-text').innerText = `${winnerName} MENANG! 🏆`;
-            document.getElementById('final-score-red').innerText = state.scoreRed;
-            document.getElementById('final-score-blue').innerText = state.scoreBlue;
-            document.getElementById('overlay-gameover').classList.add('active');
-        }
+        function showGameOver() { playSound('win'); const winner = state.scoreRed > state.scoreBlue ? 'RED' : 'BLUE'; const winnerName = winner === 'RED' ? state.red.name : state.blue.name; document.getElementById('winner-text').innerText = `${winnerName} MENANG! 🏆`; document.getElementById('final-score-red').innerText = state.scoreRed; document.getElementById('final-score-blue').innerText = state.scoreBlue; document.getElementById('overlay-gameover').classList.add('active'); }
+        function returnToMainMenu() { playSound('click'); document.getElementById('overlay-gameover').classList.remove('active'); document.getElementById('screen-game').classList.add('hidden'); document.getElementById('screen-main').classList.remove('hidden'); state.red.ready = false; state.blue.ready = false; state.red.jump = 3; state.blue.jump = 3; }
+        function playGif(src) { return new Promise(resolve => { const layer = document.getElementById('anim-layer'); const img = document.getElementById('anim-img'); img.src = src; layer.style.display = 'flex'; setTimeout(() => { layer.style.display = 'none'; resolve(); }, 4000); }); }
+        function nextRound() { playSound('click'); if (state.gameOver) return; state.round++; state.server = (state.server === 'RED') ? 'BLUE' : 'RED'; if (state.mode === 'PVC') { updateAIDisplay(); } startRound(); }
+        function clearCanvas(side) { playSound('click'); const canvas = document.getElementById(`canvas-${side}`); canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height); }
 
-        function returnToMainMenu() {
-            playSound('click');
-            document.getElementById('overlay-gameover').classList.remove('active');
-            document.getElementById('screen-game').classList.add('hidden');
-            document.getElementById('screen-main').classList.remove('hidden');
-            state.red.ready = false; state.blue.ready = false;
-            state.red.jump = 3; state.blue.jump = 3;
-        }
-
-        function playGif(src) { 
-            return new Promise(resolve => {
-                const layer = document.getElementById('anim-layer');
-                const img = document.getElementById('anim-img');
-                img.src = src;
-                layer.style.display = 'flex';
-                setTimeout(() => { layer.style.display = 'none'; resolve(); }, 4000);
-            }); 
-        }
-
-        function nextRound() {
-            playSound('click');
-            if (state.gameOver) return;
-            state.round++;
-            state.server = (state.server === 'RED') ? 'BLUE' : 'RED';
-            if (state.mode === 'PVC') {
-                state.aiAccuracy = 70;
-                updateAIDisplay();
-            }
-            startRound();
-        }
-
-        function clearCanvas(side) {
-            playSound('click');
-            const canvas = document.getElementById(`canvas-${side}`);
-            canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
-        }
-
-        // ----- CANVAS (tidak berubah) -----
+        // CANVAS (tidak berubah)
         const canvasState = { red: { ctx: null, drawing: false }, blue: { ctx: null, drawing: false } };
-        function initCanvases() {
-            ['red', 'blue'].forEach(side => {
-                const canvas = document.getElementById(`canvas-${side}`);
-                canvas.width = window.innerWidth / 2; canvas.height = window.innerHeight - 50;
-                const ctx = canvas.getContext('2d');
-                ctx.strokeStyle = side === 'red' ? '#f87171' : '#60a5fa'; ctx.lineWidth = 3; ctx.lineCap = 'round';
-                canvasState[side].ctx = ctx;
-                canvas.addEventListener('mousedown', (e) => startDrawing(side, e.offsetX, e.offsetY));
-                canvas.addEventListener('mousemove', (e) => draw(side, e.offsetX, e.offsetY));
-                canvas.addEventListener('mouseup', () => stopDrawing(side));
-                canvas.addEventListener('mouseout', () => stopDrawing(side));
-                canvas.addEventListener('touchstart', (e) => { e.preventDefault(); const touch = e.touches[0]; const rect = canvas.getBoundingClientRect(); startDrawing(side, touch.clientX - rect.left, touch.clientY - rect.top); }, { passive: false });
-                canvas.addEventListener('touchmove', (e) => { e.preventDefault(); const touch = e.touches[0]; const rect = canvas.getBoundingClientRect(); draw(side, touch.clientX - rect.left, touch.clientY - rect.top); }, { passive: false });
-                canvas.addEventListener('touchend', () => stopDrawing(side));
-            });
-        }
+        function initCanvases() { ['red', 'blue'].forEach(side => { const canvas = document.getElementById(`canvas-${side}`); canvas.width = window.innerWidth / 2; canvas.height = window.innerHeight - 50; const ctx = canvas.getContext('2d'); ctx.strokeStyle = side === 'red' ? '#f87171' : '#60a5fa'; ctx.lineWidth = 3; ctx.lineCap = 'round'; canvasState[side].ctx = ctx; canvas.addEventListener('mousedown', (e) => startDrawing(side, e.offsetX, e.offsetY)); canvas.addEventListener('mousemove', (e) => draw(side, e.offsetX, e.offsetY)); canvas.addEventListener('mouseup', () => stopDrawing(side)); canvas.addEventListener('mouseout', () => stopDrawing(side)); canvas.addEventListener('touchstart', (e) => { e.preventDefault(); const touch = e.touches[0]; const rect = canvas.getBoundingClientRect(); startDrawing(side, touch.clientX - rect.left, touch.clientY - rect.top); }, { passive: false }); canvas.addEventListener('touchmove', (e) => { e.preventDefault(); const touch = e.touches[0]; const rect = canvas.getBoundingClientRect(); draw(side, touch.clientX - rect.left, touch.clientY - rect.top); }, { passive: false }); canvas.addEventListener('touchend', () => stopDrawing(side)); }); }
         function startDrawing(side, x, y) { canvasState[side].drawing = true; [canvasState[side].lastX, canvasState[side].lastY] = [x, y]; }
         function draw(side, x, y) { if (!canvasState[side].drawing) return; const { ctx, lastX, lastY } = canvasState[side]; ctx.beginPath(); ctx.moveTo(lastX, lastY); ctx.lineTo(x, y); ctx.stroke(); [canvasState[side].lastX, canvasState[side].lastY] = [x, y]; }
         function stopDrawing(side) { canvasState[side].drawing = false; }
